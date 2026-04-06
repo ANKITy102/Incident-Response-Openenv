@@ -12,14 +12,24 @@ from openenv.core import EnvClient
 from openenv.core.client_types import StepResult
 from openenv.core.env_server.types import State
 
-from .models import MyAction, MyObservation
+from .models import (
+    IncidentAction, 
+    IncidentObservation,
+    Alert,
+    ServiceStatusInfo,
+    LogEntry,
+    MetricData,
+    ActionType,
+    AlertSeverity,
+    IncidentType,
+)
 
 
-class MyEnv(
-    EnvClient[MyAction, MyObservation, State]
+class IncidentResponseEnv(
+    EnvClient[IncidentAction, IncidentObservation, State]
 ):
     """
-    Client for the My Env Environment.
+    Client for the Incident Response Environment.
 
     This client maintains a persistent WebSocket connection to the environment server,
     enabling efficient multi-step interactions with lower latency.
@@ -27,51 +37,102 @@ class MyEnv(
 
     Example:
         >>> # Connect to a running server
-        >>> with MyEnv(base_url="http://localhost:8000") as client:
+        >>> with IncidentResponseEnv(base_url="http://localhost:8000") as client:
         ...     result = client.reset()
-        ...     print(result.observation.echoed_message)
+        ...     print(result.observation.alerts)
         ...
-        ...     result = client.step(MyAction(message="Hello!"))
-        ...     print(result.observation.echoed_message)
+        ...     result = client.step(IncidentAction(action_type=ActionType.INSPECT_LOGS, service_name="auth"))
+        ...     print(result.observation.logs)
 
     Example with Docker:
         >>> # Automatically start container and connect
-        >>> client = MyEnv.from_docker_image("my_env-env:latest")
+        >>> client = IncidentResponseEnv.from_docker_image("incident_response-env:latest")
         >>> try:
         ...     result = client.reset()
-        ...     result = client.step(MyAction(message="Test"))
+        ...     result = client.step(IncidentAction(action_type=ActionType.RESTART_SERVICE, service_name="payments"))
         ... finally:
         ...     client.close()
     """
 
-    def _step_payload(self, action: MyAction) -> Dict:
+    def _step_payload(self, action: IncidentAction) -> Dict:
         """
-        Convert MyAction to JSON payload for step message.
+        Convert IncidentAction to JSON payload for step message.
 
         Args:
-            action: MyAction instance
+            action: IncidentAction instance
 
         Returns:
             Dictionary representation suitable for JSON encoding
         """
-        return {
-            "message": action.message,
+        payload = {
+            "action_type": action.action_type,
         }
+        
+        # Add optional fields if they exist
+        if action.service_name is not None:
+            payload["service_name"] = action.service_name
+        if action.time_range is not None:
+            payload["time_range"] = action.time_range
+        if action.metric_type is not None:
+            payload["metric_type"] = action.metric_type
+        if action.replicas is not None:
+            payload["replicas"] = action.replicas
+        if action.version is not None:
+            payload["version"] = action.version
+        if action.reason is not None:
+            payload["reason"] = action.reason
+            
+        return payload
 
-    def _parse_result(self, payload: Dict) -> StepResult[MyObservation]:
+    def _parse_result(self, payload: Dict) -> StepResult[IncidentObservation]:
         """
-        Parse server response into StepResult[MyObservation].
+        Parse server response into StepResult[IncidentObservation].
 
         Args:
             payload: JSON response data from server
 
         Returns:
-            StepResult with MyObservation
+            StepResult with IncidentObservation
         """
         obs_data = payload.get("observation", {})
-        observation = MyObservation(
-            echoed_message=obs_data.get("echoed_message", ""),
-            message_length=obs_data.get("message_length", 0),
+        
+        # Parse alerts
+        alerts = []
+        for alert_data in obs_data.get("alerts", []):
+            alerts.append(Alert(**alert_data))
+        
+        # Parse services
+        services = {}
+        for service_name, service_data in obs_data.get("services", {}).items():
+            services[service_name] = ServiceStatusInfo(**service_data)
+        
+        # Parse logs
+        logs = {}
+        for service_name, log_entries in obs_data.get("logs", {}).items():
+            logs[service_name] = [LogEntry(**entry) for entry in log_entries]
+        
+        # Parse metrics
+        metrics = {}
+        for service_name, metric_entries in obs_data.get("metrics", {}).items():
+            metrics[service_name] = [MetricData(**entry) for entry in metric_entries]
+        
+        observation = IncidentObservation(
+            alerts=alerts,
+            services=services,
+            logs=logs,
+            metrics=metrics,
+            dependencies=obs_data.get("dependencies", {}),
+            incident_timeline=obs_data.get("incident_timeline", []),
+            available_actions=[ActionType(action) for action in obs_data.get("available_actions", [])],
+            current_task=obs_data.get("current_task"),
+            task_progress=obs_data.get("task_progress", 0.0),
+            identified_services=obs_data.get("identified_services", []),
+            incident_type=IncidentType(obs_data["incident_type"]) if obs_data.get("incident_type") else None,
+            severity=AlertSeverity(obs_data["severity"]) if obs_data.get("severity") else None,
+            root_cause=obs_data.get("root_cause"),
+            evidence=obs_data.get("evidence", []),
+            applied_action=obs_data.get("applied_action"),
+            recovery_time_seconds=obs_data.get("recovery_time_seconds"),
             done=payload.get("done", False),
             reward=payload.get("reward"),
             metadata=obs_data.get("metadata", {}),

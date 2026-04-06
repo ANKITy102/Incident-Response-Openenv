@@ -5,9 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-FastAPI application for the My Env Environment.
+FastAPI application for the Mini Incident Response Copilot Environment.
 
-This module creates an HTTP server that exposes the MyEnvironment
+This module creates an HTTP server that exposes the IncidentResponseEnvironment
 over HTTP and WebSocket endpoints, compatible with EnvClient.
 
 Endpoints:
@@ -36,20 +36,21 @@ except Exception as e:  # pragma: no cover
     ) from e
 
 try:
-    from ..models import MyAction, MyObservation
-    from .my_env_environment import MyEnvironment
-except ModuleNotFoundError:
-    from models import MyAction, MyObservation
-    from server.my_env_environment import MyEnvironment
+    from models import IncidentAction, IncidentObservation
+    from server.incident_response_environment import IncidentResponseEnvironment
+except ImportError:
+    # Fallback for when running as a module
+    from ..models import IncidentAction, IncidentObservation
+    from .incident_response_environment import IncidentResponseEnvironment
 
 
 # Create the app with web interface and README integration
 app = create_app(
-    MyEnvironment,
-    MyAction,
-    MyObservation,
-    env_name="my_env",
-    max_concurrent_envs=1,  # increase this number to allow more concurrent WebSocket sessions
+    IncidentResponseEnvironment,
+    IncidentAction,
+    IncidentObservation,
+    env_name="incident_response",
+    max_concurrent_envs=4,  # Allow 4 concurrent WebSocket sessions
 )
 
 

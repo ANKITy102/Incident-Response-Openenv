@@ -3,21 +3,64 @@ __pycache__/
 server/__pycache__
 *.py[cod]
 *.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
 # Virtual env
 .venv/
 venv/
+env/
+ENV/
 
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # Logs
 *.log
 
 # Env vars
 .env
+
+# UV
+.uv-cache/
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+test_complete.py
+validate_compliance.py
+
+# Documentation
+docs/_build/
+
+# Project specific
+plan1.md
+impl.md
+IMPLEMENTATION_SUMMARY.md
