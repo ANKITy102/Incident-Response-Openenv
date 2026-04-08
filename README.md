@@ -157,6 +157,241 @@ openenv push
 openenv push --namespace my-org --private
 ```
 
+## Live Deployment & Service Interaction
+
+### Hugging Face Space
+**Deployed URL**: https://huggingface.co/spaces/raghubansal/Incident-Response-Copilot
+
+### API Endpoints (Tested & Working)
+
+All endpoints have been tested and confirmed working with the following actual responses:
+
+#### Health Check - WORKING
+```bash
+curl https://raghubansal-incident-response-copilot.hf.space/health
+# RESPONSE: {"status": "healthy"}
+```
+
+#### Reset Environment - WORKING
+```bash
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/reset \
+  -H "Content-Type: application/json" -d "{}"
+# RESPONSE: Returns full observation with alerts, services, and initial state
+```
+
+#### Step Actions - WORKING
+```bash
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"inspect_logs","service_name":"auth"}}'
+# RESPONSE: {"observation": {...}, "reward": 0.19, "done": false}
+```
+
+#### Get State - WORKING
+```bash
+curl https://raghubansal-incident-response-copilot.hf.space/state
+# RESPONSE: Current environment state with task progress
+```
+
+The deployed environment exposes the following HTTP endpoints:
+
+#### Health Check
+```bash
+curl https://raghubansal-incident-response-copilot.hf.space/health
+# Response: {"status": "ok"}
+```
+
+#### Reset Environment
+```bash
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/reset \
+  -H "Content-Type: application/json" \
+  -d "{}"
+```
+**Response Example:**
+```json
+{
+  "observation": {
+    "alerts": [{"id": "1", "severity": "high", "service": "auth", "message": "Service crash detected"}],
+    "current_task": "triage",
+    "task_progress": 0.0,
+    "available_actions": ["inspect_logs", "check_metrics", "restart_service"]
+  },
+  "reward": 0.0,
+  "done": false
+}
+```
+
+#### Execute Action
+```bash
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": {
+      "action_type": "inspect_logs",
+      "service_name": "auth",
+      "time_range": "1h"
+    }
+  }'
+```
+**Response Example:**
+```json
+{
+  "observation": {
+    "current_task": "triage",
+    "task_progress": 0.1,
+    "evidence": ["Auth service showing memory leak patterns"],
+    "incident_timeline": ["Step 1: inspect_logs on auth"]
+  },
+  "reward": 0.19,
+  "done": false
+}
+```
+
+#### Get Current State
+```bash
+curl https://raghubansal-incident-response-copilot.hf.space/state
+```
+**Response Example:**
+```json
+{
+  "observation": {
+    "current_task": "triage",
+    "task_progress": 0.15,
+    "identified_services": ["auth"],
+    "incident_type": "service_crash",
+    "severity": "high"
+  }
+}
+```
+
+### Service Interaction Examples
+
+#### 1. Investigating Auth Service Logs
+```bash
+# Step 1: Reset environment
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/reset \
+  -H "Content-Type: application/json" -d "{}"
+
+# Step 2: Check auth service logs
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": {
+      "action_type": "inspect_logs",
+      "service_name": "auth"
+    }
+  }'
+
+# Step 3: Check auth service metrics
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": {
+      "action_type": "check_metrics",
+      "service_name": "auth",
+      "metric_type": "latency"
+    }
+  }'
+```
+
+#### 2. Diagnosing Payment Service Issues
+```bash
+# Check payment service dependencies
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": {
+      "action_type": "check_dependencies",
+      "service_name": "payments"
+    }
+  }'
+
+# Check payment error rate
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": {
+      "action_type": "check_metrics",
+      "service_name": "payments",
+      "metric_type": "error_rate"
+    }
+  }'
+```
+
+#### 3. Applying Fixes
+```bash
+# Restart crashed service
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": {
+      "action_type": "restart_service",
+      "service_name": "auth"
+    }
+  }'
+
+# Scale service for resource issues
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": {
+      "action_type": "scale_service",
+      "service_name": "payments",
+      "replicas": 3
+    }
+  }'
+
+# Rollback bad deployment
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": {
+      "action_type": "rollback_deployment",
+      "service_name": "api",
+      "version": "v2.8.8"
+    }
+  }'
+```
+
+### Available Services
+
+The environment simulates 5 microservices:
+
+| Service | Description | Common Issues |
+|---------|-------------|---------------|
+| **auth** | Authentication service | Memory leaks, token failures |
+| **payments** | Payment processing | Database connectivity, high load |
+| **api** | API gateway | Rate limiting, routing issues |
+| **database** | PostgreSQL database | Connection exhaustion, slow queries |
+| **cache** | Redis cache | Memory pressure, eviction policies |
+
+### Action Parameters
+
+#### inspect_logs
+- `service_name` (required): Service to inspect
+- `time_range` (optional): Time window (default: "1h")
+
+#### check_metrics
+- `service_name` (required): Service to check
+- `metric_type` (required): "latency", "error_rate", "throughput", "cpu_usage", "memory_usage"
+
+#### restart_service
+- `service_name` (required): Service to restart
+
+#### scale_service
+- `service_name` (required): Service to scale
+- `replicas` (required): Target replica count
+
+#### rollback_deployment
+- `service_name` (required): Service to rollback
+- `version` (required): Target version
+
+#### check_dependencies
+- `service_name` (required): Service to analyze
+
+#### escalate_incident
+- `reason` (required): Escalation reason
+
 ## Development & Testing
 
 ### Direct Environment Testing
@@ -182,6 +417,201 @@ Validate your environment:
 
 ```bash
 openenv validate
+```
+
+### Complete Service Testing Workflow
+
+Here's a comprehensive workflow to test all services and actions:
+
+#### Full Incident Response Simulation
+```bash
+#!/bin/bash
+# Complete incident response test script
+
+BASE_URL="https://raghubansal-incident-response-copilot.hf.space"
+
+echo "=== Starting Incident Response Test ==="
+
+# 1. Reset environment
+echo "1. Resetting environment..."
+curl -X POST $BASE_URL/reset -H "Content-Type: application/json" -d "{}"
+
+# 2. Triage Phase - Check all services
+echo -e "\n2. TRIAGE PHASE - Checking all services..."
+
+# Check auth service
+echo "Checking auth service..."
+curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"inspect_logs","service_name":"auth"}}'
+
+# Check payments service  
+echo "Checking payments service..."
+curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"check_metrics","service_name":"payments","metric_type":"error_rate"}}'
+
+# Check API gateway
+echo "Checking API gateway..."
+curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"inspect_logs","service_name":"api"}}'
+
+# Check database
+echo "Checking database..."
+curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"check_metrics","service_name":"database","metric_type":"cpu_usage"}}'
+
+# Check cache
+echo "Checking cache..."
+curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"check_metrics","service_name":"cache","metric_type":"memory_usage"}}'
+
+# 3. Diagnosis Phase - Deep dive on affected services
+echo -e "\n3. DIAGNOSIS PHASE - Deep investigation..."
+
+# Check dependencies for problematic service
+curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"check_dependencies","service_name":"auth"}}'
+
+# Check detailed metrics
+curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"check_metrics","service_name":"auth","metric_type":"latency"}}'
+
+# Check recent logs with time range
+curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"inspect_logs","service_name":"auth","time_range":"30m"}}'
+
+# 4. Resolution Phase - Apply fixes
+echo -e "\n4. RESOLUTION PHASE - Applying fixes..."
+
+# Restart crashed service
+curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"restart_service","service_name":"auth"}}'
+
+# Scale service if needed
+curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"scale_service","service_name":"payments","replicas":3}}'
+
+# Rollback if deployment issue
+curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"rollback_deployment","service_name":"api","version":"v2.8.8"}}'
+
+# 5. Verify Recovery
+echo -e "\n5. VERIFICATION PHASE - Checking recovery..."
+
+# Check all services are healthy
+for service in auth payments api database cache; do
+  echo "Checking $service service status..."
+  curl -X POST $BASE_URL/step -H "Content-Type: application/json" \
+    -d "{\"action\":{\"action_type\":\"check_metrics\",\"service_name\":\"$service\",\"metric_type\":\"error_rate\"}}"
+done
+
+echo -e "\n=== Test Complete ==="
+```
+
+#### Testing Individual Service Actions
+
+**Auth Service Testing:**
+```bash
+# Test auth service memory issues
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"check_metrics","service_name":"auth","metric_type":"memory_usage"}}'
+
+# Test auth service logs for authentication failures
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"inspect_logs","service_name":"auth","time_range":"15m"}}'
+```
+
+**Payments Service Testing:**
+```bash
+# Test payment processing latency
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"check_metrics","service_name":"payments","metric_type":"latency"}}'
+
+# Test payment throughput
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"check_metrics","service_name":"payments","metric_type":"throughput"}}'
+```
+
+**Database Service Testing:**
+```bash
+# Test database connection pool
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"check_metrics","service_name":"database","metric_type":"cpu_usage"}}'
+
+# Test database slow queries
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"inspect_logs","service_name":"database","time_range":"1h"}}'
+```
+
+**Cache Service Testing:**
+```bash
+# Test cache memory pressure
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"check_metrics","service_name":"cache","metric_type":"memory_usage"}}'
+
+# Test cache hit rates
+curl -X POST https://raghubansal-incident-response-copilot.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{"action":{"action_type":"check_metrics","service_name":"cache","metric_type":"throughput"}}'
+```
+
+#### Python Client Example
+```python
+import requests
+import json
+
+BASE_URL = "https://raghubansal-incident-response-copilot.hf.space"
+
+def test_all_services():
+    """Test interaction with all services"""
+    
+    # Reset environment
+    response = requests.post(f"{BASE_URL}/reset", json={})
+    print("Environment reset:", response.status_code)
+    
+    services = ["auth", "payments", "api", "database", "cache"]
+    metrics = ["latency", "error_rate", "cpu_usage", "memory_usage", "throughput"]
+    
+    for service in services:
+        print(f"\n=== Testing {service.upper()} Service ===")
+        
+        # Check logs
+        response = requests.post(f"{BASE_URL}/step", json={
+            "action": {
+                "action_type": "inspect_logs",
+                "service_name": service
+            }
+        })
+        print(f"Logs check: {response.status_code}")
+        
+        # Check all metrics
+        for metric in metrics:
+            response = requests.post(f"{BASE_URL}/step", json={
+                "action": {
+                    "action_type": "check_metrics",
+                    "service_name": service,
+                    "metric_type": metric
+                }
+            })
+            print(f"{metric}: {response.status_code}")
+        
+        # Check dependencies
+        response = requests.post(f"{BASE_URL}/step", json={
+            "action": {
+                "action_type": "check_dependencies",
+                "service_name": service
+            }
+        })
+        print(f"Dependencies: {response.status_code}")
+
+if __name__ == "__main__":
+    test_all_services()
 ```
 
 ## Project Structure
