@@ -18,6 +18,7 @@ import os
 import sys
 import json
 import time
+import asyncio
 from typing import Dict, List, Any, Optional
 
 import openai
@@ -38,7 +39,7 @@ try:
 except ImportError:
     # Fallback for local development
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-    from incident_response import (
+    from __init__ import (
         IncidentResponseEnv, 
         IncidentAction, 
         IncidentObservation,
@@ -206,7 +207,7 @@ or
         )
 
 
-def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent, task_name: str) -> Dict[str, Any]:
+async def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent, task_name: str) -> Dict[str, Any]:
     """Run a single task and return results."""
     
     # Get task
@@ -216,7 +217,7 @@ def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent, task
     print(f"[START] task={task_name} env=incident_response model={agent.model_name}")
     
     # Reset environment for this task
-    result = env.reset()
+    result = await env.reset()
     observation = result.observation
     
     # Set current task in environment
@@ -238,7 +239,7 @@ def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent, task
             action = agent.get_action(observation, instructions)
             
             # Execute action
-            result = env.step(action)
+            result = await env.step(action)
             observation = result.observation
             
             total_reward += result.reward or 0.0
@@ -276,7 +277,7 @@ def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent, task
     }
 
 
-def run_all_tasks() -> Dict[str, Any]:
+async def run_all_tasks() -> Dict[str, Any]:
     """Run all tasks and return comprehensive results."""
     
     # Check environment variables
@@ -315,7 +316,7 @@ def run_all_tasks() -> Dict[str, Any]:
             print(f"Running task: {task_name.upper()}")
             print(f"{'='*60}")
             
-            result = run_single_task(env, agent, task_name)
+            result = await run_single_task(env, agent, task_name)
             all_results[task_name] = result
             
             # Small delay between tasks
@@ -327,10 +328,11 @@ def run_all_tasks() -> Dict[str, Any]:
         print(f"{'='*60}")
         
         # Get expected results for grading (use a sample incident)
+        from incident_response.models import IncidentType, AlertSeverity
         sample_incident = get_task_for_incident(
-            incident_type="service_crash",
+            incident_type=IncidentType.SERVICE_CRASH,
             affected_services=["auth"],
-            severity="critical"
+            severity=AlertSeverity.CRITICAL
         )
         
         # Grade each task
@@ -371,7 +373,7 @@ def run_all_tasks() -> Dict[str, Any]:
     
     finally:
         # Clean up environment
-        env.close()
+        await env.close()
 
 
 def main():
@@ -380,7 +382,7 @@ def main():
     print("=" * 60)
     
     try:
-        results = run_all_tasks()
+        results = asyncio.run(run_all_tasks())
         
         # Final summary
         print(f"\n{'='*60}")

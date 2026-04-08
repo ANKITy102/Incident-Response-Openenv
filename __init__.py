@@ -17,6 +17,8 @@ from .models import (
     ServiceStatus,
     LogLevel,
 )
+from .tasks import task_manager, get_task_for_incident
+from .graders import grader_manager
 
 __all__ = [
     "IncidentAction",
@@ -28,4 +30,7 @@ __all__ = [
     "MetricType",
     "ServiceStatus",
     "LogLevel",
+    "task_manager",
+    "grader_manager", 
+    "get_task_for_incident",
 ]
