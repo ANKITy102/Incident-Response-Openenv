@@ -53,6 +53,13 @@ app = create_app(
     max_concurrent_envs=4,  # Allow 4 concurrent WebSocket sessions
 )
 
+# Hugging Face continuously checks:
+#   http://localhost:7860/health
+# If this endpoint is missing → container marked unhealthy → app fails
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 def main():
     """Main entry point for OpenEnv validation."""
@@ -60,7 +67,7 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--port", type=int, default=7860)
     parser.add_argument("--host", type=str, default="0.0.0.0")
     args = parser.parse_args()
     

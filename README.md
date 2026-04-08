@@ -3,7 +3,7 @@ title: Mini Incident Response Copilot Environment
 emoji: 🚨
 colorFrom: red
 colorTo: yellow
-sdk: gradio
+sdk: docker
 pinned: false
 app_port: 8000
 license: mit
