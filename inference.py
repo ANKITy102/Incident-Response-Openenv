@@ -24,6 +24,13 @@ from typing import Dict, List, Any, Optional
 import openai
 from openenv.core import EnvClient
 
+# Environment variables with defaults (like sample)
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+HF_TOKEN = os.getenv("HF_TOKEN", "REMOVED")
+BENCHMARK = "incident_response"
+SUCCESS_SCORE_THRESHOLD = 0.1  # normalized score in [0, 1]
+
 # Import our environment
 try:
     from incident_response import (
@@ -214,7 +221,7 @@ async def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent
     task = task_manager.get_task(task_name)
     
     # Log task start
-    print(f"[START] task={task_name} env=incident_response model={agent.model_name}")
+    print(f"[START] task={task_name} env={BENCHMARK} model={agent.model_name}")
     
     # Reset environment for this task
     result = await env.reset()
@@ -229,6 +236,7 @@ async def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent
     # Track episode
     step_count = 0
     total_reward = 0.0
+    rewards: List[float] = []
     start_time = time.time()
     
     try:
@@ -242,7 +250,9 @@ async def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent
             result = await env.step(action)
             observation = result.observation
             
-            total_reward += result.reward or 0.0
+            step_reward = result.reward or 0.0
+            total_reward += step_reward
+            rewards.append(step_reward)
             
             # Log step
             action_str = f"{action.action_type.value}"
@@ -253,7 +263,9 @@ async def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent
             if action.replicas:
                 action_str += f",replicas={action.replicas}"
             
-            print(f"[STEP] step={step_count} action={action_str} reward={result.reward:.3f} done={observation.done} error=")
+            error_val = "null"  # No error handling in current code
+            done_val = str(observation.done).lower()
+            print(f"[STEP] step={step_count} action={action_str} reward={step_reward:.2f} done={done_val} error={error_val}")
             
             # Small delay to avoid overwhelming the API
             time.sleep(0.1)
@@ -265,15 +277,23 @@ async def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent
     # Calculate execution time
     execution_time = time.time() - start_time
     
+    # Calculate score for this task
+    task_score = observation.task_progress  # Use task progress as score
+    success = task_score >= SUCCESS_SCORE_THRESHOLD
+    
     # Log task end
-    print(f"[END] success={observation.task_progress:.3f} steps={step_count} rewards={total_reward:.3f}")
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={str(success).lower()} steps={step_count} score={task_score:.3f} rewards={rewards_str}")
     
     return {
         "observation": observation,
         "steps": step_count,
         "total_reward": total_reward,
         "execution_time": execution_time,
-        "task_progress": observation.task_progress
+        "task_progress": observation.task_progress,
+        "task_score": task_score,
+        "success": success,
+        "rewards": rewards
     }
 
 
@@ -281,22 +301,18 @@ async def run_all_tasks() -> Dict[str, Any]:
     """Run all tasks and return comprehensive results."""
     
     # Check environment variables
-    api_base_url = os.getenv("API_BASE_URL")
-    model_name = os.getenv("MODEL_NAME")
-    hf_token = os.getenv("HF_TOKEN")
-    
-    if not api_base_url or not model_name or not hf_token:
-        print("[ERROR] Missing required environment variables: API_BASE_URL, MODEL_NAME, HF_TOKEN", file=sys.stderr)
+    if not HF_TOKEN:
+        print("[ERROR] Missing required environment variable: HF_TOKEN", file=sys.stderr)
         sys.exit(1)
     
     # Initialize OpenAI client
     client = openai.OpenAI(
-        base_url=api_base_url,
-        api_key=hf_token
+        base_url=API_BASE_URL,
+        api_key=HF_TOKEN
     )
     
     # Initialize agent
-    agent = IncidentResponseAgent(client, model_name)
+    agent = IncidentResponseAgent(client, MODEL_NAME)
     
     # Initialize environment
     try:
@@ -327,25 +343,16 @@ async def run_all_tasks() -> Dict[str, Any]:
         print("CALCULATING SCORES")
         print(f"{'='*60}")
         
-        # Get expected results for grading (use a sample incident)
-        from incident_response.models import IncidentType, AlertSeverity
-        sample_incident = get_task_for_incident(
-            incident_type=IncidentType.SERVICE_CRASH,
-            affected_services=["auth"],
-            severity=AlertSeverity.CRITICAL
-        )
-        
-        # Grade each task
+        # Grade each task using task_score from results
         task_scores = {}
         for task_name, result in all_results.items():
-            expected = sample_incident[task_name]
-            score = grader_manager.grade_task(task_name, result["observation"], expected)
-            task_scores[task_name] = score
+            task_score = result.get("task_score", 0.0)
+            task_scores[task_name] = task_score
             
-            print(f"{task_name.capitalize()} score: {score:.3f}")
+            print(f"{task_name.capitalize()} score: {task_score:.3f}")
         
-        # Calculate overall score
-        overall_score = grader_manager.get_overall_score(task_scores)
+        # Calculate overall score (average of task scores)
+        overall_score = sum(task_scores.values()) / len(task_scores) if task_scores else 0.0
         print(f"Overall score: {overall_score:.3f}")
         
         # Summary
