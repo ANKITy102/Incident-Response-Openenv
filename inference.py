@@ -300,10 +300,10 @@ async def run_all_tasks() -> Dict[str, Any]:
     
     # Initialize environment
     try:
-        env = IncidentResponseEnv(base_url="http://localhost:8000")
+        env = IncidentResponseEnv(base_url="http://localhost:7860")
     except Exception as e:
         print(f"[ERROR] Failed to connect to environment: {e}", file=sys.stderr)
-        print("[ERROR] Make sure the environment server is running on http://localhost:8000", file=sys.stderr)
+        print("[ERROR] Make sure the environment server is running on http://localhost:7860", file=sys.stderr)
         sys.exit(1)
     
     try:
