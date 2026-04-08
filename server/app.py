@@ -61,6 +61,14 @@ app = create_app(
 def health():
     return {"status": "ok"}
 
+@app.get("/")
+def root():
+    return {
+        "message": "Incident Response Copilot API is running",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
 def main():
     """Main entry point for OpenEnv validation."""
     import uvicorn
