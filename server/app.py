@@ -59,7 +59,7 @@ app = create_app(
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "healthy"}
 
 @app.get("/")
 def root():
