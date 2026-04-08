@@ -25,8 +25,8 @@ import openai
 from openenv.core import EnvClient
 
 # Environment variables (required - no defaults)
-API_BASE_URL = os.getenv("API_BASE_URL")
-MODEL_NAME = os.getenv("MODEL_NAME")
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
+MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 HF_TOKEN = os.getenv("HF_TOKEN")
 BENCHMARK = "incident_response"
 SUCCESS_SCORE_THRESHOLD = 0.1  # normalized score in [0, 1]
