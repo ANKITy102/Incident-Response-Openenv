@@ -6,7 +6,7 @@ colorTo: yellow
 sdk: docker
 pinned: false
 app_port: 8000
-base_path: /web
+license: mit
 tags:
   - openenv
   - incident-response
