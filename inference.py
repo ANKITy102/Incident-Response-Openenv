@@ -24,12 +24,56 @@ from typing import Dict, List, Any, Optional
 import openai
 from openenv.core import EnvClient
 
-# Environment variables with defaults (like sample)
-API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-HF_TOKEN = os.getenv("HF_TOKEN", "HF_TOKEN")
+# Environment variables (required - no defaults)
+API_BASE_URL = os.getenv("API_BASE_URL")
+MODEL_NAME = os.getenv("MODEL_NAME")
+HF_TOKEN = os.getenv("HF_TOKEN")
 BENCHMARK = "incident_response"
 SUCCESS_SCORE_THRESHOLD = 0.1  # normalized score in [0, 1]
+
+
+def validate_environment_variables() -> None:
+    """Validate that all required environment variables are set and valid."""
+    missing_vars = []
+    invalid_vars = []
+    
+    # Check for missing variables
+    if not API_BASE_URL:
+        missing_vars.append("API_BASE_URL")
+    if not MODEL_NAME:
+        missing_vars.append("MODEL_NAME")
+    if not HF_TOKEN:
+        missing_vars.append("HF_TOKEN")
+    
+    # Check for invalid variable formats
+    if API_BASE_URL and not (API_BASE_URL.startswith('http://') or API_BASE_URL.startswith('https://')):
+        invalid_vars.append("API_BASE_URL must start with http:// or https://")
+    
+    if MODEL_NAME and len(MODEL_NAME.strip()) == 0:
+        invalid_vars.append("MODEL_NAME cannot be empty")
+    
+    if HF_TOKEN and len(HF_TOKEN.strip()) < 10:
+        invalid_vars.append("HF_TOKEN appears to be too short (minimum 10 characters)")
+    
+    # Report errors and exit if any issues found
+    if missing_vars or invalid_vars:
+        print("[ERROR] Environment variable validation failed:", file=sys.stderr)
+        
+        if missing_vars:
+            print("Missing required variables:", file=sys.stderr)
+            for var in missing_vars:
+                print(f"  - {var}", file=sys.stderr)
+        
+        if invalid_vars:
+            print("Invalid variables:", file=sys.stderr)
+            for var in invalid_vars:
+                print(f"  - {var}", file=sys.stderr)
+        
+        print("\nPlease set the following environment variables:", file=sys.stderr)
+        print("  export API_BASE_URL='https://api.openai.com/v1'", file=sys.stderr)
+        print("  export MODEL_NAME='gpt-4'", file=sys.stderr)
+        print("  export HF_TOKEN='your_huggingface_token'", file=sys.stderr)
+        sys.exit(1)
 
 # Import our environment
 try:
@@ -300,16 +344,15 @@ async def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent
 async def run_all_tasks() -> Dict[str, Any]:
     """Run all tasks and return comprehensive results."""
     
-    # Check environment variables
-    if not HF_TOKEN:
-        print("[ERROR] Missing required environment variable: HF_TOKEN", file=sys.stderr)
-        sys.exit(1)
-    
     # Initialize OpenAI client
-    client = openai.OpenAI(
-        base_url=API_BASE_URL,
-        api_key=HF_TOKEN
-    )
+    try:
+        client = openai.OpenAI(
+            base_url=API_BASE_URL,
+            api_key=HF_TOKEN
+        )
+    except Exception as e:
+        print(f"[ERROR] Failed to initialize OpenAI client: {e}", file=sys.stderr)
+        sys.exit(1)
     
     # Initialize agent
     agent = IncidentResponseAgent(client, MODEL_NAME)
@@ -387,6 +430,9 @@ def main():
     """Main entry point."""
     print("Starting Mini Incident Response Copilot Inference")
     print("=" * 60)
+    
+    # Validate environment variables first
+    validate_environment_variables()
     
     try:
         results = asyncio.run(run_all_tasks())
