@@ -27,7 +27,7 @@ from openenv.core import EnvClient
 # Environment variables with defaults (like sample)
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-HF_TOKEN = os.getenv("HF_TOKEN", "REMOVED")
+HF_TOKEN = os.getenv("HF_TOKEN", "HF_TOKEN")
 BENCHMARK = "incident_response"
 SUCCESS_SCORE_THRESHOLD = 0.1  # normalized score in [0, 1]
 
