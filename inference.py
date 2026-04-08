@@ -323,6 +323,14 @@ async def run_single_task(env: IncidentResponseEnv, agent: IncidentResponseAgent
     
     # Calculate score for this task
     task_score = observation.task_progress  # Use task progress as score
+    
+    # Ensure score is strictly between 0 and 1 (not inclusive of 0.0 and 1.0)
+    # Epsilon values chosen to be minimal impact while satisfying validation requirements
+    if task_score <= 0.0:
+        task_score = 0.001  # Small epsilon to avoid exact 0.0 boundary
+    elif task_score >= 1.0:
+        task_score = 0.999  # Small epsilon to avoid exact 1.0 boundary
+    
     success = task_score >= SUCCESS_SCORE_THRESHOLD
     
     # Log task end
@@ -396,6 +404,14 @@ async def run_all_tasks() -> Dict[str, Any]:
         
         # Calculate overall score (average of task scores)
         overall_score = sum(task_scores.values()) / len(task_scores) if task_scores else 0.0
+        
+        # Ensure overall score is strictly between 0 and 1 (not inclusive of 0.0 and 1.0)
+        # Epsilon values chosen to be minimal impact while satisfying validation requirements
+        if overall_score <= 0.0:
+            overall_score = 0.001  # Small epsilon to avoid exact 0.0 boundary
+        elif overall_score >= 1.0:
+            overall_score = 0.999  # Small epsilon to avoid exact 1.0 boundary
+            
         print(f"Overall score: {overall_score:.3f}")
         
         # Summary
